@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@font-face {
+  font-family: 'DNF';
+  src: url('DNFBitBitv2.ttf') format('truetype');
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DNF', sans-serif;
+  background: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ── 전체 래퍼 ── */
+#app {
+  width: 100vw;
+  max-width: 1280px;
+  aspect-ratio: 16/9;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+/* ── 메인화면 ── */
+#mainScreen {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  transition: opacity 1s ease;
+}
+#mainScreen.fade-out { opacity: 0; pointer-events: none; }
+
+.main-bg {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.start-btn-wrap {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.start-btn-wrap:hover { transform: translateX(-50%) scale(1.07); filter: brightness(1.1); }
+.start-btn-wrap:active { transform: translateX(-50%) scale(0.97); }
+.start-btn-wrap img { height: 96px; display: block; }
+
+/* ── 실험화면 ── */
+#gameScreen {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 1s ease;
+  pointer-events: none;
+}
+#gameScreen.active { opacity: 1; pointer-events: all; }
+
+/* 배경 레이어 */
+.bl {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 1.2s ease;
+}
+
+/* Canvas 날씨 효과 */
+#wc { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+/* ── HUD 상단 ── */
+.hud {
+  position: absolute; top: 0; left: 0; right: 0; height: 46px;
+  z-index: 30; display: flex; align-items: center;
+  background: rgba(255,255,255,0.22);
+  border-bottom: 1.5px solid rgba(255,255,255,0.45);
+}
+.ht {
+  font-size: 13px; color: #fff; padding: 0 14px;
+  border-right: 1px solid rgba(255,255,255,0.3);
+  height: 100%; display: flex; align-items: center;
+  white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.hc { display: flex; flex: 1; height: 100%; }
+.hci {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 14px;
+  border-right: 1px solid rgba(255,255,255,0.2);
+}
+.hl { font-size: 9px; color: rgba(255,255,255,0.6); }
+.hv { font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+/* 뒤로가기 버튼 */
+.back-btn {
+  margin-left: auto;
+  margin-right: 10px;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-family: 'DNF', sans-serif;
+  white-space: nowrap;
+}
+.back-btn:hover { background: rgba(255,255,255,0.35); }
+
+/* ── 좌측 패널 ── */
+.lp {
+  position: absolute; top: 46px; left: 0; bottom: 28px; width: 110px;
+  z-index: 20; background: rgba(255,255,255,0.2);
+  border-right: 1.5px solid rgba(255,255,255,0.4);
+  padding: 10px 7px; display: flex; flex-direction: column; gap: 5px;
+}
+.wb {
+  background: rgba(255,255,255,0.14);
+  border: 1.5px solid rgba(255,255,255,0.32);
+  border-radius: 5px; padding: 7px 4px;
+  font-size: 12px; color: rgba(255,255,255,0.8);
+  text-align: center; cursor: pointer; line-height: 1.4;
+  font-family: 'DNF', sans-serif;
+  transition: all 0.12s; user-select: none;
+}
+.wb:hover { background: rgba(255,255,255,0.28); }
+.wb:active { transform: scale(0.96); }
+.wb.on {
+  background: rgba(255,255,255,0.42);
+  border-color: rgba(255,255,255,0.85); color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.45);
+}
+.wi { font-size: 15px; display: block; margin-bottom: 2px; }
+
+.sal-box {
+  background: rgba(0,0,0,0.14);
+  border: 1.5px solid rgba(255,255,255,0.28);
+  border-radius: 5px; padding: 8px 6px;
+  text-align: center; margin-top: 5px;
+}
+.sal-lbl { font-size: 9px; color: rgba(255,255,255,0.52); margin-bottom: 4px; }
+.sal-num { font-size: 22px; color: #fff; line-height: 1; text-shadow: 0 2px 6px rgba(0,0,0,0.25); transition: color 0.5s; }
+.sal-unit { font-size: 9px; color: rgba(255,255,255,0.42); margin-top: 3px; }
+
+/* ── 우측 패널 ── */
+.rp {
+  position: absolute; top: 46px; right: 0; bottom: 28px; width: 175px;
+  z-index: 20; background: rgba(255,255,255,0.2);
+  border-left: 1.5px solid rgba(255,255,255,0.4);
+  padding: 8px 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.oc {
+  background: rgba(0,0,0,0.14);
+  border: 1.5px solid rgba(255,255,255,0.28);
+  border-radius: 5px; padding: 7px;
+}
+.ol { font-size: 9px; color: rgba(255,255,255,0.52); margin-bottom: 5px; }
+.ov {
+  background: rgba(0,0,0,0.35); height: 140px;
+  border-radius: 3px; margin-bottom: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.ov img {
+  max-height: 100%; max-width: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s;
+}
+.os { font-size: 12px; color: #fff; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.oss { font-size: 10px; color: rgba(255,255,255,0.5); text-align: center; margin-top: 2px; }
+
+.lc {
+  background: rgba(0,0,0,0.12);
+  border: 1.5px solid rgba(255,255,255,0.22);
+  border-radius: 5px; padding: 7px; flex: 1;
+}
+.ll { font-size: 9px; color: rgba(255,255,255,0.5); margin-bottom: 5px; }
+.li { font-size: 10px; color: rgba(255,255,255,0.7); margin-bottom: 4px; line-height: 1.4; display: flex; gap: 4px; }
+.li.hi { color: #fff; }
+.li.wa { color: #ffe080; }
+
+.leg { display: flex; flex-direction: column; gap: 4px; }
+.lr { display: flex; align-items: center; gap: 6px; }
+.lp2 { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.lt { font-size: 10px; color: rgba(255,255,255,0.6); }
+
+/* ── 하단 바 ── */
+.bt {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 28px;
+  z-index: 30; background: rgba(255,255,255,0.2);
+  border-top: 1.5px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.tl { font-size: 9px; color: rgba(255,255,255,0.65); }
+.tt { flex: 1; background: rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.22); border-radius: 2px; height: 6px; overflow: hidden; }
+.tf { height: 6px; background: rgba(255,255,255,0.55); width: 0%; transition: width 0.8s; }
+.tv { font-size: 9px; color: rgba(255,255,255,0.65); }
+
+/* ── 중앙 갯고둥 영역 ── */
+.cn {
+  position: absolute; top: 46px; left: 110px; right: 175px; bottom: 28px;
+  z-index: 10; overflow: hidden;
+}
+
+/* ── 갯고둥 ── */
+.sk {
+  position: absolute;
+  transition: left 6s ease, bottom 6s ease;
+  cursor: pointer;
+}
+.sk img {
+  width: 72px; height: auto; display: block;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.45));
+  transition: transform 0.5s ease, filter 0.5s ease;
+}
+.sk.defense img {
+  transform: scale(0.88);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)) brightness(0.65);
+}
+
+/* 상태 뱃지 */
+.state-badge {
+  position: absolute;
+  top: -22px; left: 50%;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 9px;
+  white-space: nowrap;
+  font-family: 'DNF', sans-serif;
+  transition: all 0.4s;
+  pointer-events: none;
+}
+.badge-daily { background: rgba(40,190,90,0.88); color: #fff; }
+.badge-defense { background: rgba(210,50,50,0.9); color: #fff; }
+.badge-escape { background: rgba(230,150,20,0.9); color: #fff; }
+
+/* 링 */
+.sk-ring {
+  position: absolute;
+  top: -6px; left: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  border-radius: 50%;
+  border: 2px dashed rgba(80,220,120,0.75);
+  animation: pulse-daily 2.5s infinite;
+  pointer-events: none;
+  transition: border-color 0.4s;
+}
+.sk-ring.def {
+  border-color: rgba(210,50,50,0.85);
+  border-style: solid;
+  animation: pulse-danger 0.8s infinite;
+}
+
+@keyframes pulse-daily  { 0%,100%{opacity:0.25;transform:scale(0.94)} 50%{opacity:0.9;transform:scale(1.06)} }
+@keyframes pulse-danger { 0%,100%{opacity:0.5;transform:scale(0.96)}  50%{opacity:1;transform:scale(1.08)} }
+
+/* 음소거 버튼 */
+.mute-btn {
+  position: absolute; top: 50px; right: 181px;
+  z-index: 31; background: rgba(255,255,255,0.22);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 10px; color: #fff; cursor: pointer;
+  font-family: 'DNF', sans-serif;
+}
+.mute-btn:hover { background: rgba(255,255,255,0.35); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══ 메인화면 ══ -->
+  <div id="mainScreen">
+    <img class="main-bg" src="main_bg.png" alt="야외 실험실"/>
+    <div class="start-btn-wrap" onclick="startGame()">
+      <img src="start_btn.png" alt="START"/>
+    </div>
+  </div>
+
+  <!-- ══ 실험화면 ══ -->
+  <div id="gameScreen">
+    <div class="bl" id="bgA" style="z-index:1; background-image:url('bg_sunny.png')"></div>
+    <div class="bl" id="bgB" style="z-index:2; opacity:0"></div>
+    <canvas id="wc"></canvas>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="ht">야외 실험실</div>
+      <div class="hc">
+        <div class="hci"><div class="hl">날씨</div><div class="hv" id="wv">☀️ 맑음</div></div>
+        <div class="hci"><div class="hl">염도</div><div class="hv" id="sv" style="color:#a0ffcc">33.0 PSU</div></div>
+      </div>
+      <button class="back-btn" onclick="goMain()">← 메인</button>
+    </div>
+
+    <!-- 좌측 패널 -->
+    <div class="lp">
+      <div class="wb on" id="b0" onclick="setWx('sunny',0)"><span class="wi">☀️</span>맑음</div>
+      <div class="wb" id="b1" onclick="setWx('rain',1)"><span class="wi">🌧️</span>비</div>
+      <div class="wb" id="b2" onclick="setWx('heavy',2)"><span class="wi">⛈️</span>집중호우</div>
+      <div class="wb" id="b3" onclick="setWx('hot',3)"><span class="wi">🔥</span>폭염</div>
+      <div class="sal-box">
+        <div class="sal-lbl">현재 염도</div>
+        <div class="sal-num" id="salNum">33.0</div>
+        <div class="sal-unit">PSU</div>
+      </div>
+    </div>
+
+    <!-- 중앙 갯고둥 -->
+    <div class="cn" id="center"></div>
+
+    <!-- 우측 패널 -->
+    <div class="rp">
+      <div class="oc">
+        <div class="ol">대표 개체 관찰</div>
+        <div class="ov"><img id="obsImg" src="snail_daily_obs.png" alt="갯고둥"/></div>
+        <div class="os" id="ostate">일상 행동</div>
+        <div class="oss" id="osub">섭식 중</div>
+      </div>
+      <div class="lc">
+        <div class="ll">관찰 기록</div>
+        <div class="li hi"><span>▶</span><span id="l0">맑음 시작</span></div>
+        <div class="li hi"><span>▶</span><span id="l1">염도 → 33 PSU</span></div>
+        <div class="li"><span>·</span><span id="l2">정상 이동 중</span></div>
+      </div>
+      <div class="leg">
+        <div class="lr"><div class="lp2" style="background:rgba(40,190,90,0.85)"></div><div class="lt">일상</div></div>
+        <div class="lr"><div class="lp2" style="background:rgba(210,50,50,0.85)"></div><div class="lt">방어</div></div>
+        <div class="lr"><div class="lp2" style="background:rgba(230,150,20,0.85)"></div><div class="lt">회피</div></div>
+      </div>
+    </div>
+
+    <!-- 하단 바 -->
+    <div class="bt">
+      <div class="tl">경과 시간</div>
+      <div class="tt"><div class="tf" id="tf"></div></div>
+      <div class="tv" id="tv">0h / 72h</div>
+    </div>
+
+    <button class="mute-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
+  </div>
+</div>
+
+<script>
+// ── 상태 ──
+let curWx = 'sunny';
+let curSal = 33;
+let salTimer = null;
+let bgSide = 'A';
+let behaviorTimer = null;
+let gameHours = 0;
+let timeTimer = null;
+let muted = false;
+let audioCtx = null;
+let bgmNodes = [];
+let animId = null;
+let drops = [], particles = [];
+let isDefense = false;
+let moveTimers = [];
+let gameStarted = false;
+
+// ── 날씨 설정 ──
+const WX = {
+  sunny: { label:'☀️ 맑음', sal:33, salColor:'#a0ffcc', logs:['맑음 시작','염도 → 33 PSU','정상 이동 중'] },
+  rain:  { label:'🌧️ 비',   sal:13, salColor:'#b0d0ff', logs:['비 시작','염도 → 13 PSU','방어 감지'] },
+  heavy: { label:'⛈️ 집중호우', sal:3, salColor:'#ffaaaa', logs:['집중호우!','염도 → 3 PSU','즉시 방어!'] },
+  hot:   { label:'🔥 폭염', sal:43, salColor:'#ffe080', logs:['폭염 시작','염도 → 43 PSU','개판 닫음'] },
+};
+
+// ── 갯고둥 초기 위치 (6마리) ──
+// y값: bottom% 기준 — 배경 갯벌 영역(하단 40% 이내)에만 머무르게
+const INIT_POS = [
+  {x:8,  y:8},  {x:25, y:18},
+  {x:42, y:6},  {x:58, y:22},
+  {x:72, y:10}, {x:85, y:20},
+];
+let snails = [];
+
+// ── 메인 → 게임 전환 ──
+function startGame() {
+  const main = document.getElementById('mainScreen');
+  const game = document.getElementById('gameScreen');
+  main.classList.add('fade-out');
+  setTimeout(() => {
+    main.style.display = 'none';
+    game.classList.add('active');
+    if (!gameStarted) {
+      gameStarted = true;
+      initGame();
+    }
+  }, 1000);
+}
+
+function goMain() {
+  const main = document.getElementById('mainScreen');
+  const game = document.getElementById('gameScreen');
+  main.style.display = '';
+  main.style.opacity = 0;
+  game.classList.remove('active');
+  setTimeout(() => { main.classList.remove('fade-out'); main.style.opacity = ''; }, 50);
+  stopBGM();
+}
+
+// ── 게임 초기화 ──
+function initGame() {
+  resizeCanvas();
+  buildSnails();
+  startSnailMovement('normal');
+  startWeatherFX('sunny');
+  if (!muted && audioCtx) startBGM('sunny');
+}
+
+// ── 갯고둥 생성 ──
+function buildSnails() {
+  const cn = document.getElementById('center');
+  cn.innerHTML = '';
+  snails = [];
+  INIT_POS.forEach((pos, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'sk';
+    wrap.id = 'sk_' + i;
+    wrap.style.left = pos.x + '%';
+    wrap.style.bottom = pos.y + '%';
+
+    const ring = document.createElement('div');
+    ring.className = 'sk-ring';
+    ring.id = 'ring_' + i;
+
+    const badge = document.createElement('div');
+    badge.className = 'state-badge badge-daily';
+    badge.id = 'badge_' + i;
+    badge.textContent = '● 일상';
+
+    const img = document.createElement('img');
+    img.src = 'snail.png';
+    img.alt = '갯고둥';
+
+    wrap.appendChild(ring);
+    wrap.appendChild(badge);
+    wrap.appendChild(img);
+    cn.appendChild(wrap);
+    snails.push({ el: wrap, ring, badge, img, x: pos.x, y: pos.y });
+  });
+}
+
+// ── 갯고둥 이동 ──
+// speed: 'normal' | 'slow'
+function startSnailMovement(speed) {
+  stopSnailMovement();
+  const baseDelay  = speed === 'slow' ? 14000 : 7000;
+  const randExtra  = speed === 'slow' ? 10000 : 9000;
+  snails.forEach((s, i) => {
+    const move = () => {
+      if (isDefense) return;
+      const nx = 4 + Math.random() * 88;
+      const ny = 4 + Math.random() * 32;
+      s.img.style.transform = nx < s.x ? 'scaleX(-1)' : 'scaleX(1)';
+      s.el.style.left = nx + '%';
+      s.el.style.bottom = ny + '%';
+      s.x = nx; s.y = ny;
+      const delay = baseDelay + Math.random() * randExtra;
+      const t = setTimeout(move, delay);
+      moveTimers.push(t);
+    };
+    const t = setTimeout(move, i * 1500 + Math.random() * 3000);
+    moveTimers.push(t);
+  });
+}
+
+function stopSnailMovement() {
+  moveTimers.forEach(t => clearTimeout(t));
+  moveTimers = [];
+}
+
+// ── 방어/일상 상태 전환 ──
+function setDefense(on) {
+  isDefense = on;
+  snails.forEach(s => {
+    s.ring.className = on ? 'sk-ring def' : 'sk-ring';
+    if (on) {
+      s.el.classList.add('defense');
+      s.badge.className = 'state-badge badge-defense';
+      s.badge.textContent = '⚠ 방어';
+    } else {
+      s.el.classList.remove('defense');
+      s.badge.className = 'state-badge badge-daily';
+      s.badge.textContent = '● 일상';
+    }
+  });
+  if (on) stopSnailMovement();
+  else startSnailMovement('normal');
+}
+
+function setEscape() {
+  snails.forEach(s => {
+    s.badge.className = 'state-badge badge-escape';
+    s.badge.textContent = '→ 회피';
+  });
+}
+
+// ── 관찰창 이미지 ──
+function setObsImg(type) {
+  const img = document.getElementById('obsImg');
+  img.style.opacity = 0;
+  setTimeout(() => { img.src = 'snail_' + type + '_obs.png'; img.style.opacity = 1; }, 220);
+}
+
+// ── 로그 ──
+function setLogs(a, b, c) {
+  document.getElementById('l0').textContent = a;
+  document.getElementById('l1').textContent = b;
+  document.getElementById('l2').textContent = c;
+}
+
+// ── 행동 전환 ──
+let salWatchTimer = null;
+
+function stopSalWatch() {
+  if (salWatchTimer) { clearInterval(salWatchTimer); salWatchTimer = null; }
+}
+
+function waitUntilSal(targetSal, wx, onReached) {
+  stopSalWatch();
+  salWatchTimer = setInterval(() => {
+    if (curWx !== wx) { stopSalWatch(); return; }
+    if (Math.abs(curSal - targetSal) < 0.8) {
+      stopSalWatch();
+      onReached();
+    }
+  }, 300);
+}
+
+// 회피행동 — 한 지점으로 랜덤 집결
+function startEscape() {
+  stopSnailMovement();
+  isDefense = false;
+
+  // 집결 목표 지점 랜덤 설정 (모서리나 구석 쪽)
+  const spots = [
+    {x: 6,  y: 5},  {x: 88, y: 5},
+    {x: 6,  y: 25}, {x: 88, y: 25},
+    {x: 45, y: 3},
+  ];
+  const spot = spots[Math.floor(Math.random() * spots.length)];
+
+  snails.forEach((s, i) => {
+    s.el.classList.remove('defense');
+    s.ring.className = 'sk-ring def';
+    s.badge.className = 'state-badge badge-escape';
+    s.badge.textContent = '→ 회피';
+
+    // 약간씩 다른 타이밍으로 목표 지점 근처로 이동
+    const t = setTimeout(() => {
+      const nx = spot.x + (Math.random() - 0.5) * 14;
+      const ny = spot.y + (Math.random() - 0.5) * 8;
+      const cx = Math.max(2, Math.min(94, nx));
+      const cy = Math.max(2, Math.min(30, ny));
+      s.img.style.transform = cx < s.x ? 'scaleX(-1)' : 'scaleX(1)';
+      s.el.style.left = cx + '%';
+      s.el.style.bottom = cy + '%';
+      s.x = cx; s.y = cy;
+    }, i * 400 + Math.random() * 600);
+    moveTimers.push(t);
+  });
+}
+
+function applyBehavior(wx) {
+  if (behaviorTimer) clearTimeout(behaviorTimer);
+  stopSalWatch();
+
+  const setStateLabel = (label, sub, obsType) => {
+    document.getElementById('ostate').textContent = label;
+    document.getElementById('osub').textContent = sub;
+    setObsImg(obsType);
+  };
+
+  if (wx === 'sunny') {
+    setStateLabel('일상 행동', '섭식 중', 'daily');
+    setDefense(false);
+    startSnailMovement('normal');
+
+  } else if (wx === 'heavy') {
+    // 즉시 방어, 끝까지 유지
+    setStateLabel('방어 행동', '개판 닫음', 'defense');
+    setDefense(true);
+
+  } else if (wx === 'rain') {
+    // 1단계: 느리게 이동
+    setStateLabel('일상 행동', '움직임 느려짐', 'daily');
+    isDefense = false;
+    startSnailMovement('slow');
+    snails.forEach(s => {
+      s.badge.className = 'state-badge badge-daily';
+      s.badge.textContent = '● 일상';
+    });
+
+    // 2단계: 13 psu 도달 → 방어
+    waitUntilSal(13, 'rain', () => {
+      setStateLabel('방어 행동', '개판 닫음', 'defense');
+      setDefense(true);
+      document.getElementById('l2').textContent = '13 PSU — 방어 시작';
+
+      // 3단계: 15초 후 → 회피
+      behaviorTimer = setTimeout(() => {
+        if (curWx !== 'rain') return;
+        setStateLabel('회피 행동', '물 밖·숨을 곳으로 대피 중', 'escape');
+        startEscape();
+        document.getElementById('l2').textContent = '물 밖 또는 숨을 수 있는 곳으로 대피해요';
+      }, 15000);
+    });
+
+  } else if (wx === 'hot') {
+    // 1단계: 느리게 이동
+    setStateLabel('일상 행동', '움직임 느려짐', 'daily');
+    isDefense = false;
+    startSnailMovement('slow');
+    snails.forEach(s => {
+      s.badge.className = 'state-badge badge-daily';
+      s.badge.textContent = '● 일상';
+    });
+
+    // 2단계: 43 psu 도달 → 방어
+    waitUntilSal(43, 'hot', () => {
+      setStateLabel('방어 행동', '개판 닫음', 'defense');
+      setDefense(true);
+      document.getElementById('l2').textContent = '43 PSU — 방어 시작';
+
+      // 3단계: 15초 후 → 회피
+      behaviorTimer = setTimeout(() => {
+        if (curWx !== 'hot') return;
+        setStateLabel('회피 행동', '물 밖·숨을 곳으로 대피 중', 'escape');
+        startEscape();
+        document.getElementById('l2').textContent = '물 밖 또는 숨을 수 있는 곳으로 대피해요';
+      }, 15000);
+    });
+  }
+}
+
+// ── 배경 fade ──
+function switchBg(wx) {
+  const next = bgSide === 'A' ? 'B' : 'A';
+  const nEl = document.getElementById('bg' + next);
+  const cEl = document.getElementById('bg' + bgSide);
+  nEl.style.backgroundImage = "url('bg_" + wx + ".png')";
+  nEl.style.zIndex = 3; nEl.style.opacity = 1;
+  setTimeout(() => { cEl.style.opacity = 0; cEl.style.zIndex = 1; nEl.style.zIndex = 2; }, 60);
+  bgSide = next;
+}
+
+// ── 염도 점진 변화 ──
+function animSal(target) {
+  if (salTimer) clearInterval(salTimer);
+  salTimer = setInterval(() => {
+    const diff = target - curSal;
+    if (Math.abs(diff) < 0.08) { curSal = target; clearInterval(salTimer); }
+    else curSal += diff * 0.016;
+    const v = curSal.toFixed(1);
+    document.getElementById('salNum').textContent = v;
+    document.getElementById('sv').textContent = v + ' PSU';
+    let c = '#a0ffcc';
+    if (curSal < 10) c = '#ffaaaa';
+    else if (curSal < 25) c = '#b0d0ff';
+    else if (curSal > 38) c = '#ffe080';
+    document.getElementById('sv').style.color = c;
+    document.getElementById('salNum').style.color = c;
+  }, 80);
+}
+
+// ── 날씨 전환 ──
+function setWx(wx, idx) {
+  if (curWx === wx) return;
+  curWx = wx;
+  [0,1,2,3].forEach(i => document.getElementById('b'+i).classList.remove('on'));
+  document.getElementById('b'+idx).classList.add('on');
+  document.getElementById('wv').textContent = WX[wx].label;
+  switchBg(wx);
+  animSal(WX[wx].sal);
+  setLogs(...WX[wx].logs);
+  applyBehavior(wx);
+  startWeatherFX(wx);
+  startBGM(wx);
+  gameHours = 0;
+  document.getElementById('tf').style.width = '0%';
+  document.getElementById('tv').textContent = '0h / 72h';
+  if (timeTimer) clearInterval(timeTimer);
+  timeTimer = setInterval(() => {
+    gameHours++;
+    document.getElementById('tf').style.width = Math.min(gameHours / 72 * 100, 100) + '%';
+    document.getElementById('tv').textContent = gameHours + 'h / 72h';
+  }, 2000);
+}
+
+// ── Canvas 날씨 효과 ──
+const wc = document.getElementById('wc');
+const wctx = wc.getContext('2d');
+
+function resizeCanvas() {
+  const app = document.getElementById('app');
+  wc.width = app.offsetWidth;
+  wc.height = app.offsetHeight;
+}
+
+function initDrops(n, sMin, sMax, lMin, lMax, ax) {
+  drops = [];
+  for (let i = 0; i < n; i++) {
+    drops.push({
+      x: Math.random() * wc.width, y: Math.random() * wc.height,
+      speed: sMin + Math.random() * (sMax - sMin),
+      len: lMin + Math.random() * (lMax - lMin),
+      ax, alpha: 0.28 + Math.random() * 0.4
+    });
+  }
+}
+
+function drawRain(heavy) {
+  wctx.clearRect(0, 0, wc.width, wc.height);
+  drops.forEach(d => {
+    d.y += d.speed; d.x += d.ax;
+    if (d.y > wc.height) { d.y = -d.len; d.x = Math.random() * wc.width; }
+    if (d.x > wc.width) d.x = 0;
+    wctx.strokeStyle = `rgba(180,215,245,${d.alpha})`;
+    wctx.lineWidth = heavy ? 1.3 : 0.75;
+    wctx.beginPath();
+    wctx.moveTo(d.x, d.y);
+    wctx.lineTo(d.x + d.ax * 0.9, d.y + d.len);
+    wctx.stroke();
+  });
+  if (heavy) {
+    particles.forEach((p, i) => {
+      p.y -= p.vy; p.x += p.vx; p.a -= 0.016;
+      if (p.a <= 0) { particles.splice(i, 1); return; }
+      wctx.globalAlpha = p.a;
+      wctx.fillStyle = 'rgba(200,230,255,1)';
+      wctx.beginPath(); wctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); wctx.fill();
+    });
+    wctx.globalAlpha = 1;
+    if (Math.random() < 0.5) {
+      particles.push({
+        x: Math.random() * wc.width,
+        y: wc.height * 0.85 + Math.random() * wc.height * 0.1,
+        vx: (Math.random() - 0.5) * 2, vy: 0.8 + Math.random() * 1.5,
+        r: 1 + Math.random() * 2.5, a: 0.55
+      });
+    }
+  }
+}
+
+function drawHeat() {
+  wctx.clearRect(0, 0, wc.width, wc.height);
+  const t = Date.now() / 1000;
+  for (let i = 0; i < 10; i++) {
+    const x = wc.width * 0.08 + i * wc.width * 0.09;
+    const h = 25 + Math.sin(t * 1.3 + i * 0.8) * 18;
+    const yy = wc.height * 0.42 + Math.sin(t * 0.7 + i) * 10;
+    const g = wctx.createLinearGradient(x, yy, x, yy - h);
+    g.addColorStop(0, 'rgba(255,200,80,0)');
+    g.addColorStop(0.5, 'rgba(255,200,80,0.055)');
+    g.addColorStop(1, 'rgba(255,200,80,0)');
+    wctx.fillStyle = g; wctx.fillRect(x - 10, yy - h, 20, h);
+  }
+  particles.forEach((p, i) => {
+    p.y -= p.vy; p.a -= 0.009;
+    p.x += Math.sin(Date.now() / 800 + i) * 0.4;
+    if (p.a <= 0) { particles.splice(i, 1); return; }
+    wctx.globalAlpha = p.a;
+    wctx.fillStyle = 'rgba(255,220,100,1)';
+    wctx.beginPath(); wctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); wctx.fill();
+  });
+  wctx.globalAlpha = 1;
+  if (Math.random() < 0.1) {
+    particles.push({ x: wc.width * 0.1 + Math.random() * wc.width * 0.8, y: wc.height * 0.72, vy: 0.35 + Math.random() * 0.55, r: 1 + Math.random() * 1.8, a: 0.35 });
+  }
+}
+
+function drawSunny() {
+  wctx.clearRect(0, 0, wc.width, wc.height);
+  const t = Date.now() / 1000;
+  for (let i = 0; i < 6; i++) {
+    const rx = wc.width * 0.28 + i * wc.width * 0.085;
+    const a = 0.032 + Math.sin(t * 0.4 + i) * 0.014;
+    const g = wctx.createLinearGradient(rx, 0, rx + 18, wc.height * 0.4);
+    g.addColorStop(0, `rgba(255,248,210,${a + 0.02})`);
+    g.addColorStop(1, 'rgba(255,248,210,0)');
+    wctx.fillStyle = g;
+    wctx.beginPath();
+    wctx.moveTo(rx - 10, 0); wctx.lineTo(rx + 12, 0);
+    wctx.lineTo(rx + 55, wc.height * 0.4); wctx.lineTo(rx + 28, wc.height * 0.4);
+    wctx.fill();
+  }
+}
+
+function startWeatherFX(wx) {
+  if (animId) cancelAnimationFrame(animId);
+  particles = [];
+  const loop = () => { animId = requestAnimationFrame(loop); };
+  if (wx === 'rain') {
+    initDrops(85, 7, 14, 12, 22, 0.5);
+    const go = () => { drawRain(false); animId = requestAnimationFrame(go); }; go();
+  } else if (wx === 'heavy') {
+    initDrops(200, 14, 24, 16, 30, 2.5);
+    const go = () => { drawRain(true); animId = requestAnimationFrame(go); }; go();
+  } else if (wx === 'hot') {
+    const go = () => { drawHeat(); animId = requestAnimationFrame(go); }; go();
+  } else {
+    const go = () => { drawSunny(); animId = requestAnimationFrame(go); }; go();
+  }
+}
+
+// ── Web Audio BGM (볼륨 줄임) ──
+function getAC() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function stopBGM() {
+  bgmNodes.forEach(n => { try { n.stop(); n.disconnect(); } catch(e) {} });
+  bgmNodes = [];
+}
+function startBGM(wx) {
+  stopBGM();
+  if (muted) return;
+  const ac = getAC();
+  if (wx === 'sunny') makeBirds(ac);
+  else if (wx === 'rain') makeRain(ac, false);
+  else if (wx === 'heavy') makeRain(ac, true);
+  else if (wx === 'hot') makeCicada(ac);
+}
+
+function makeNoiseBuf(ac, dur) {
+  const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+
+function makeRain(ac, heavy) {
+  const src = ac.createBufferSource();
+  src.buffer = makeNoiseBuf(ac, 3); src.loop = true;
+  const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = heavy ? 500 : 700;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = heavy ? 9000 : 6000;
+  const gn = ac.createGain(); gn.gain.value = heavy ? 0.10 : 0.07; // 볼륨 대폭 줄임
+  src.connect(hp); hp.connect(lp); lp.connect(gn); gn.connect(ac.destination);
+  src.start(); bgmNodes.push(src, gn);
+  if (heavy) {
+    const thunder = () => {
+      if (curWx !== 'heavy') return;
+      const tb = ac.createBufferSource();
+      tb.buffer = makeNoiseBuf(ac, 2);
+      const tf = ac.createBiquadFilter(); tf.type = 'lowpass'; tf.frequency.value = 140;
+      const tg = ac.createGain(); tg.gain.value = 0.18; // 줄임
+      tb.connect(tf); tf.connect(tg); tg.connect(ac.destination);
+      tb.start(); bgmNodes.push(tb, tg);
+      setTimeout(thunder, 8000 + Math.random() * 10000);
+    };
+    setTimeout(thunder, 4000 + Math.random() * 5000);
+  }
+}
+
+function makeBirds(ac) {
+  const wind = ac.createBufferSource();
+  wind.buffer = makeNoiseBuf(ac, 2); wind.loop = true;
+  const wf = ac.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 400; wf.Q.value = 0.4;
+  const wg = ac.createGain(); wg.gain.value = 0.018; // 줄임
+  wind.connect(wf); wf.connect(wg); wg.connect(ac.destination);
+  wind.start(); bgmNodes.push(wind, wg);
+  const chirp = () => {
+    if (muted || curWx !== 'sunny') return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    const f = 2200 + Math.random() * 1800;
+    o.frequency.setValueAtTime(f, ac.currentTime);
+    o.frequency.linearRampToValueAtTime(f * 1.35, ac.currentTime + 0.08);
+    o.frequency.linearRampToValueAtTime(f * 0.88, ac.currentTime + 0.18);
+    g.gain.setValueAtTime(0, ac.currentTime);
+    g.gain.linearRampToValueAtTime(0.035, ac.currentTime + 0.04); // 줄임
+    g.gain.linearRampToValueAtTime(0, ac.currentTime + 0.22);
+    o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + 0.25);
+    bgmNodes.push(o, g);
+    setTimeout(chirp, 1000 + Math.random() * 3000);
+  };
+  setTimeout(chirp, 800);
+}
+
+function makeCicada(ac) {
+  const src = ac.createBufferSource();
+  src.buffer = makeNoiseBuf(ac, 2); src.loop = true;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 4200; bp.Q.value = 2.5;
+  const lfo = ac.createOscillator(); lfo.frequency.value = 20;
+  const lg = ac.createGain(); lg.gain.value = 0.4;
+  const gn = ac.createGain(); gn.gain.value = 0.055; // 줄임
+  lfo.connect(lg); lg.connect(gn.gain);
+  src.connect(bp); bp.connect(gn); gn.connect(ac.destination);
+  src.start(); lfo.start(); bgmNodes.push(src, lfo, lg, gn);
+  const hw = ac.createBufferSource();
+  hw.buffer = makeNoiseBuf(ac, 2); hw.loop = true;
+  const hwf = ac.createBiquadFilter(); hwf.type = 'highpass'; hwf.frequency.value = 180;
+  const hwg = ac.createGain(); hwg.gain.value = 0.015; // 줄임
+  hw.connect(hwf); hwf.connect(hwg); hwg.connect(ac.destination);
+  hw.start(); bgmNodes.push(hw, hwg);
+}
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('muteBtn').textContent = muted ? '🔇' : '🔊';
+  if (muted) stopBGM(); else startBGM(curWx);
+}
+
+// ── 오디오 컨텍스트 활성화 ──
+document.addEventListener('click', () => {
+  if (!audioCtx) {
+    getAC();
+    if (!muted && gameStarted) startBGM(curWx);
+  } else if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}, { once: true });
+
+window.addEventListener('resize', resizeCanvas);
+</script>
+</body>
+</html>
